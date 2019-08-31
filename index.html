@@ -1,0 +1,636 @@
+<meta charset="utf-8" emacsmode="-*- markdown -*-">
+
+                    **6.08 Report Team 14**
+
+![The system which we use, along with each of its components](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1558041727421_ESP32_system.jpeg)
+
+# Overview
+
+Our product, GameAndChat, is a game-playing system that uses two ESP32 systems with buttons with labeled numbers, a joystick, a camera, an MP3 player, and a screen. It has a chat functionality and a game functionality, with the chat functionality working during games. It starts off with a Main Menu, from which a player can choose Chat, TicTacToe, or Connect4 - after which they will be redirected to a home screen for the corresponding application. Then, the player can follow the instructions (e.g. Press Button 16 to Exit, which will return to the Main Menu; Press Joystick to Start Game, which will start the game). 
+
+We now proceed to the explanation of the game. **In all further explanations in this report, any two generic players shall be denoted as Alice and Bob.** Now suppose that Alice has started the game; then, the game will wait until Bob is connected. In addition, Alice and Bob are randomly assigned their player roles (X and O in TicTacToe, with X going first; Yellow and Red in Connect4, with Yellow going first). Then, both players can make moves or go to the messaging app, whose functionality is explained in the next paragraph. If it is Alice’s turn, then Bob shall wait until Alice makes a move. Otherwise, once Bob makes a move, Alice is notified of Bob’s move, and the screen will indicate that one of the following happened:
+
+
+- The game ended in a draw
+- The game ended with the other player winning
+- It is now Alice’s turn.
+
+
+We now turn to the functionality of Chat, followed by the functionality of Camera. For Chat, Alice can click Button 26 to send a message, Button 27 to receive a message, the joystick to enter Camera, or Button 16 to exit. In Camera, the player can click Button 26 to take a picture and send it, the joystick to receive a picture, or Button 16 to exit back to the Chat.
+
+# Schematic
+![Project Schematic](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1557871712221_Wiring+diagram.jpg)
+
+# Functional Block Diagram
+## Chat
+![Functional block diagram for chat](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1557970601414_blockdiagram_chat.jpg)
+
+
+Alice records through the microphone. Her recording is then sent to the Google Speech API to be processed into text. This text is stored in our database along with the user’s name and timestamp. Bob can retrieve Alice’s most recent message from the database. Bob’s ESP 32 then sends signal to the MP3 player to play the retrieved message through the speaker.
+
+<iframe width="560" height="335" align=”middle” src="https://www.youtube-nocookie.com/embed/sFTOmq9wIgI" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## Game
+![Functional block diagram for game](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1557971537650_blockdiagram_game.jpg)
+
+
+Alice uses joystick/buttons to make a drop a piece in either tic-tac-toe or connect4. Her ESP 32 records her corresponding move to the database. When an update is made to the game board, both players’ ESP 32s retrieve the latest game board state from the database and draw it on the TFT screen.
+
+<iframe width="560" height="335" align=”middle” src="https://www.youtube-nocookie.com/embed/w6lmc8sXJq4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<iframe width="560" height="335" align=”middle” src="https://www.youtube-nocookie.com/embed/3numTV0dBn8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## Camera
+![Functional block diagram for camera](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1557971043391_blockdiagram_camera.jpg)
+
+
+Alice takes a picture using the camera. The ESP 32 receives the picture in compressed JPEG format, which is then converted into a char array and stored to the database along with the name of the user and timestamp. Bob can retrieve Alice’s most recent picture from the database. The retrieved image is in a string format, which must be converted back to a compressed JPEG. The compressed JPEG is then decoded and displayed on the TFT screen.
+
+<iframe width="560" height="335" align=”middle” src="https://www.youtube-nocookie.com/embed/PUdYi_CulZo" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+# State Machine Diagrams
+![Button State Diagram](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557677106501_BUTTON+STATE+DIAGRAM.jpg)
+
+
+The Button that we use is the same as the Button class implemented in Week 4 Exercises.
+The Button state diagram consists of five states, which as as follows:
+
+- State 0: initial state
+- State 1: “button pressed” state
+- State 2: Button pressed for a “short” amount of time, (10 ms) i.e. “short press”
+- State 3: Button pressed for a “long” amount of time (500 ms), i.e. “short press”
+- State 4: Button just released from a short or long press
+
+
+![Scroller State Diagram](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557677418838_Scroller.jpg)
+
+
+Note that the Scroller state diagram actually consists of TWO diagrams, one for x-direction and y-direction. The new states for both directions are calculated sequentially (one after the other).
+Also, Main Menu only uses y-direction, and Connect 4 only uses x-direction.
+
+
+![Chat State Diagram](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557940658347_CHAT+STATE+DIAGRAM.jpg)
+
+
+The Chat state diagram encompasses both sending/receiving messages as well as picture taking (and, of course, picture receiving). Therefore, there are two actions one can take: send message (or picture), or receive message (or picture). “Record” for chat (and “Capture” for camera) are for sending, and “Receive” is for receiving (of course).
+
+![TicTacToe State Diagram](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557677443364_TicTacToe.jpg)
+
+
+When a player Alice starts the TicTacToe game, Alice first goes to the home screen. Then, Alice selects to play the game (or to exit by pressing Button 16). Once Alice selects to play the game, Alice will be randomly assigned which player he is (X or O). To start the game, however, the other player, Bob, must also be in the game; therefore, the game will simply wait until Bob is connected, which can be determined using a query to the server.
+
+During the game, when Alice makes a move, Bob must be notified; therefore, Alice’s TicTacToe interface will also notify the server, which will then update its state. While it is not Bob’s turn, Bob’s interface will make queries to the server until Bob gets information indicating the move Alice made. If Alice has made her move, the information Bob receives from the server is of the following: the position that Alice put her piece, as well as one of three statuses: “win” (Alice wins), “draw” (game over, draw), or “continue” (Bob’s turn to play; the game has not ended). Bob’s screen will then reflect Alice’s move - and if Alice wins, the three in a row that Alice has obtained.
+
+TicTacToe is also integrated with Chat. Chat, however, does not work unless the game is in progress (i.e. both players are playing). To go to chat, one simply presses the “Message Button” (as indicated in the state diagram), which is Button 26. 
+
+![Connect 4 State Diagram](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557677139332_Connect+4.jpg)
+
+
+The state diagram for Connect4 is very similar to TicTacToe, with the same dynamics between the two players as in TicTacToe. The main difference is, of course, the rules of  the game.
+
+![Main Menu State Diagram](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557677462826_Main+Menu.jpg)
+
+
+Main_Menu.ino, is the state diagram that encompasses the entire system’s state diagram, i.e. Main_Menu.ino is the code which the entire system is run from. From “Home”, the player can either scroll through the list of 3 options or click one of them.
+
+<iframe width="560" height="335" align=”middle” src="https://www.youtube-nocookie.com/embed/Z9TS9eTOd54?start=1" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+# Design Challenges/Rationale for Decisions
+
+
+## Integration
+
+A key part of our project is the integration part. As shown through the state diagrams, the functionality of some parts uses the functionality of other parts. 
+
+To take care of integration, we decided to make our code blocking. If functionality A calls functionality B, then functionality A would simply wait for functionality B. For example, suppose that a player is currently in the Main Menu and decides to play TicTacToe. Then, the Main Menu would simply wait for TicTacToe to finish, and then continue on, as shown with this example:
+
+
+```
+    //tic_tac_toe.h
+    void enter_tictactoe() {
+      TicTacToe ttt = TicTacToe();
+      Serial.println("------START TICTACTOE INTEGRATION---------");
+      ttt.setup();
+      while (!ttt.loop()); //waits for TicTacToe to finish.
+      Serial.println("------END TICTACTOE INTEGRATION---------");
+    }
+```    
+
+Once the TicTacToe game is finished, the Main Menu would then re-display the Main Menu and continue on as if the TicTacToe game was never played.
+
+**Rationale for using Blocking Code**
+
+
+![Parts Hierarchy. If there is an arrow from Part A to Part B, it means that the functionality of A may call the functionality of B.](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1557949104996_Parts+Hierarchy+1.jpg)
+
+
+Each part of our project - TicTacToe game, Connect4 game, Chat, Main Menu, etc. - was originally written separately (i.e. each functionality was implemented as a code that stood well by itself but needed modification when combined with other codes), with its own setup() function and loop() function (and others). When it came to integrating those parts together, there were parts that could potentially call the functionality of another part. Therefore, to minimalize the amounts of changes to the original codes, we simply made the codes blocking. Therefore, if Part A called the functionality of Part B, Part A would not have to keep track of the state of Part B; instead, we could depend entirely on Part B to keep track of its own state. 
+
+Our codes, however, still had significant changes. In particular, different parts have functions or global variables that had the same names. Therefore, we implemented all the parts (except Main Menu, which is at the top of the hierarchy) as classes with all the methods (loop(), setup(), etc.) themselves, so as to avoid conflicting names of variables.
+
+In addition, we changed the “loop()” function in a part so as to return a boolean value - whether to exit the functionality of the part. To illustrate this, note that the functionality of Main Menu calls the functionality of Connect4. Then, Connect4 loops, independently of the state of the Main Manu functionality. A player, however, would indicate that he wants to exit Connect4 go back to Main Menu by pressing the exit button (namely, button 16) - and only then would the loop() function in Connect4 return true.
+
+**Memory**
+Another challenge of integration was memory; we found that the amount of memory was extremely limited. Therefore, particularly for long arrays, we had to use global variables that were shared across different files. For example, every request and response for a query to the server uses one single request buffer and response buffer array (respectively). In addition, we had to make sure that there were no local variables (inside functions) that were large arrays. Dealing with this issue proved to be a challenge mainly because many variables implemented in different header files had the same name, or they had different names but served the same purpose; to take care of each of these cases, we had to exercise caution to make sure that we did not make any errors in transitioning from the original codes to the new, integrated codes.
+
+## Chat 
+![Chat Functionality Overview](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1557801017127_Untitled+Diagram+2.jpg)
+
+
+Another challenge was implementing the chat functionality. Since we are not sending audio messages directly between two users, we must use Google’s Speech Recognition API to convert speech into text. This text is then played word by word by playing corresponding pre-downloaded .mp3 files on the MP3player’s SD card. 
+
+Assuming that Alice wants to send a message to Bob WLOG. First, Alice will press a button to record her message. When the button is released, her message will be sent to the Google Speech API, which converts the voice input into a string. This string is then POSTed as an entry on the server’s database along with other information such as the name of user and timestamp. 
+
+The MP3 player contains a SD card of .mp3 files for various words (one .mp3 file per word). In our case, the SD card contains pre-downloaded .mp3 files for 3,000 most commonly used English words. Each .mp3 file is named with an integer from 0-2999.  
+
+In order for Bob to play Alice’s most recent message, he must first make a GET request to the server. When the server code (words.py) receives the request, it will look up Alice’s most recent message in the database. The getword() function looks up a dictionary and returns the integer associated with each word in Alice’s message. The list of integers corresponding to Alice’s most recent message is then sent back the ESP32, which tells the MP3 player these .mp3 files through the speaker. 
+
+## 
+## Camera
+![Camera Functionality](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1557815709647_Untitled+Diagram+3.jpg)
+
+
+Another challenge was implementing the camera functionality. Assume, WLOG, that Alice wants to take and send a picture to Bob. First, Alice will press a button to tell the camera to capture a picture, which is then sent back to ESP32 as a compressed JPEG. This compressed JPEG is stored as an array of hex values representing pixels in the image. Then the ESP32 POSTs the JPEG to the database along with other information such as the name of the user and timestamp. However, the array is usually too large to be sent once directly. Thus, we must convert the array into a string representation and send the string in packets to avoid stackoverflow (implementation details to be discussed in the Code Description Section).
+
+In order for Bob to display Alice’s most recent image, he must make a GET request to the server. Since the image information (currently in string format in the database) is too large to be sent once directly back to the ESP32, we must once again send the it in packets to avoid stackoverflow (implementation details to be discussed in the Code Description Section). Once all packets have been received, Bob converts the string representation of the image back to an array of hex values. This array is the same as the original compressed JPEG that Alice took with her camera. Bob then uses the JPEGdecoder class to successfully display this compressed JPEG on the TFT screen (details regarding the JPEGdecoder class to be discussed in the Code Description Section). 
+ 
+
+## One Player → Two Player
+
+The codes for TicTacToe and Connect4 were written first for only one player (who would play both X and O in TicTacToe and both Yellow and Red in Connect4), which was fairly simple for tic tac toe. 
+
+However, there were many significant differences between the one-player and two-player versions of the games. In particular, syncing the two players into one consistent state proved to be a challenge; first of all, there were instances where both of them needed to query the server at the same time. As a result, we often got connection errors when testing simultaneous two-player games. Figuring out the reason for such errors took some time, but we finally figured it out: Since querying the server takes a significant amount of time, we needed to make sure that we implemented a delay in between server queries so that the server would not be overloaded, which would cause connection errors. 
+
+# Parts List
+| **Item Description** | **Item Number**   | **Vendor**                                                                                                                                                                                                                                       | **Total Price**      |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| Mini MP3 Player      | 2                 | [Amazon](https://www.amazon.com/dp/B01MXOFAE4)                                                                                                                                                                                                   | $5.52 each           |
+| Speakers             | 4                 | [Adafruit](https://www.adafruit.com/product/1314?gclid=CjwKCAjwy7vlBRACEiwAZvdx9sQBKTTHjHnr_bkM91Z0Qp6Qp3wCbygyGmBcvxypBtenjqczHyU4XhoCTugQAvD_BwE)                                                                                              | $1.95 each           |
+| Joysticks            | One pack(4 total) | [Amazon](https://www.amazon.com/dp/B07KG2HBDV/ref=sspa_dk_detail_5?psc=1&pd_rd_i=B07KG2HBDV&pd_rd_w=qxXbC&pf_rd_p=8a8f3917-7900-4ce8-ad90-adf0d53c0985&pd_rd_wg=GOhSX&pf_rd_r=VK6WAE17VFHMBAD1K98Q&pd_rd_r=29209e59-6206-11e9-94d4-49728df24266) | $6.99 for whole pack |
+| Camera               | 2                 | [Amazon](https://www.amazon.com/Arducam-Module-Megapixels-Arduino-Mega2560/dp/B012UXNDOY)                                                                                                                                                        | $25.99 each          |
+| 608 Labkit           | 3                 | Ourselves                                                                                                                                                                                                                                        | Free                 |
+| **Total**            |                   |                                                                                                                                                                                                                                                  | $77.81               |
+
+
+
+# Code Description (non server-side)
+
+For this section, I list each of the non-server side code files, as well as the key functions in each of them.
+
+
+## Main_Menu.ino
+
+Main_Menu.ino is the main code from which the entire system is run.
+
+
+- void drawMenu(TFT_eSPI&#42; screen, uint16_t fc, uint16_t bc) 
+    - Parameters
+        - screen: the TFT object that represents the screen itself
+        - fc: foreground (text) color
+        - bc: background color
+    - This function draws the actual main menu by showing the header “Main Menu” as well as the three options: Chat, TicTacToe, and Connect4.
+- void runTicTacToe()
+    - runTicTacToe is called when the player selects the TicTacToe option in the main menu by pressing the joystick down when the screen’s cursor points to TicTacToe.
+    - runTicTacToe enters the TicTacToe game, and waits for the TicTacToe game to finish (which happens when a game is not in progress and the player has exited the TicTacToe game by pressing button 16).
+    - After exiting the TicTacToe game, runTicTacToe redisplays the main menu.
+- void runConnect4()
+    - runConnect4 is called when the player selects the Connect4 option in the main menu by pressing the joystick down when the screen’s cursor points to Connect4.
+    - runConnect4 enters the Connect4 game, and waits for the Connect4 game to finish (which happens when a game is not in progress and the player has exited the Connect4 game by pressing button 16).
+    - After exiting the Connect4 game, runConnect4 redisplays the main menu.
+- void runChat()
+    - runChat is called when the player selects the Chat option in the main menu by pressing the joystick down when the screen’s cursor points to Chat.
+    - runChat enters Chat mode, and waits for Chat mode to finish (which happens when the person is in the main menu of Chat and presses button 16).
+    - After exiting Chat mode, runChat redisplays the main menu.
+- void drawCursor(TFT_eSPI&#42; screen, uint16_t fc) 
+    - Parameters
+        - screen: the TFT object that represents the screen itself
+        - fc: foreground (text) color
+    - When the main menu’s cursor’s position updates, drawCursor makes sure to reflect this update on the screen.
+- setup()
+    - setup initiates all the pins, sets up the background, and then displays the main menu. (Note that wifi connection is not needed.)
+- loop()
+    - loop checks for any update of the joystick button (pressing the joystick down). If the joystick is pressed down, then the appropriate function (runChat, runTicTacToe, or runConnect4) is called.
+    - Otherwise, loop also checks for if the cursor is pointed up or down, and adjusts the position of the cursor accordingly (by calling drawMenu, which calls drawCursor).
+
+
+## board.h
+
+This header file contains a template for a TicTacToe or Connect4 board. Its main functionality is to simulate putting a new piece down. It uses X and O for the players in **both games**, and X goes first. (The corresponding Connect4 players are Yellow for X, and Red for O). 
+The main usage of Board is to keep track of the current board state without making a query to the server (however, queries to the server are still needed to take into account the other player’s moves).
+
+
+- Board (int w, int h, char player0, char player1, uint32_t color0, uint32_t color1, int need)
+    - Arguments:
+        - w = width of board
+            - 3 for TicTacToe, 7 for Connect4
+        - h = height of board
+            - 3 for TicTacToe, 6 for Connect4
+        - player0 = character used to represent first player
+            - Always X for our purposes
+        - player1 = character used to represent second player
+            - Always O for our purposes
+        - color0: color used to display the first player’s pieces
+            - for TicTacToe, red
+            - for Connect4, yellow
+        - color1: color used to display the second player’s pieces
+            - for TicTacToe, blue
+            - for Connect4, red
+- void put (int x, int y)
+    - Puts piece on board, based on whose turn it is.
+    - This function is also called after the opponent makes a move. Note, however, that a server query is needed to detect the opponent’s move.
+
+
+## button.h
+
+This header file stores the Button class, which models a button. Every button is linked to one pin in the ESP32, and every instance of the Button class detects short and long presses (in the case of our project, however, any action taken with a long press or a short press is the same; therefore, long and short presses are treated equally). The code used for the Button class is the same as that in Week 4 Exercises.
+
+
+- Button (int p)
+    - The constructor takes in p, the pin number for the button.
+- void read()
+    - The button reads the data from the digital pin to determine whether the button is  pressed or not.
+- int update()
+    - The state of the Button is updated using the Button State Diagram as shown in this report.
+    - If the button was just released, then update() returns 1 if a short press was detected and 2 if a long press was just detected.
+    - In all other cases, update() returns 0.
+
+
+## scroller.h
+
+This header file stores the Scroller class, which models the joystick moving in the x-direction or the y-direction. Taking into account the independence of each direction, the joystick actually has two scrollers - one for each direction. Each Scroller can wrap around, e.g. in the Connect 4 game, if the cursor is in the rightmost column, then pointing the cursor right will move the cursor to the leftmost column.
+
+
+- Scroller (int length)
+    - It takes in one single argument: the total “length” of the scroller. The “length” is such that all possible values of the scroller’s value are the integers in the range [0, length). 
+- void update (int reading)
+    - update takes in an analog reading of the joystick (in the x or y direction, as appropriate) and updates the state scroller’s value using the Scroller State Diagram as shown in this report.
+
+
+## tic_tac_toe_game.h
+
+This header file stores the TicTacToe class, which models a TicTacToe game, as well as the main menu. Together, the functions have a variety of purposes, from displaying on the screen to taking action based on a person’s move. 
+
+Suppose that when Alice or Bob is referred to in an explanation of a function below, either the game is ongoing and it is Alice’s turn - or Alice has been connected to the game and Bob has not been connected to the game.
+
+
+- void setup()
+    - Connects to wifi and then displays the home screen.
+- void display_draw(), void display_win()
+    - Indicates the draw or the win on the screen.
+- void display_continue()
+    - Indicates that the person whose turn it is has changed (and therefore the action is “continue” - as defined in the state diagram for TicTacToe above).
+- void display_entire_board()
+    - Displays the current board state.
+    - This function is called when returning from the chat functionality to the game.
+- void do_my_turn()
+    - This function is called by the player whose turn it is (hence, the name of the function).
+    - Queries whether the other player has been connected (with a 2 s query before the delay). If not, then does not do anything else (i.e. “return;”)
+    - If Button 26 is pressed, then enters the Chat application.
+    - If the joystick is pressed, checks to see if anyone has played the position that the joystick is pointing to yet. If not, puts a piece in that position.
+    - Otherwise if the joystick is moved, updates the joystick position (and calls remove_selection and draw_selection as appropriate - these functions are described below).
+- void do_not_my_turn()
+    - This function is called by the player whose turn it is not (hence, the name of the function).
+    - Queries whether the other player has been connected (with a 2 s query before the delay). If not, then does not do anything else (i.e. “return;”)
+    - If Button 26 is pressed, then enters the Chat application.
+    - Otherwise, does the following in a 3-second period:
+        - If Button 26 is pressed, then enters the Chat application.
+        - Otherwise, if it is more than 2 seconds into the period, queries whether the other player has made a move.
+            - If the other player has made a move, then the response will contain one of “draw”, “win”, and “continue”, as described in the TicTacToe state diagram. The following occurs:
+                - Game ends if the response of the query is “draw”
+                - Game ends, and screen displays the other player’s 3 in a row if the response of the query is “win”
+                - Otherwise, game continues, and the player whose turn it is changes.
+- bool loop()
+    - If the player is currently in the main menu, then loop() then checks for a short press of the joystick. If a short press is detected, assigns the player to X or O (by making a query to the server-side code, tic_tac_toe_query.py).
+    - Otherwise, if the game is in progress, calls “do_my_turn()” or “do_not_my_turn()” as appropriate.
+    - Otherwise, a game has just ended. Checks for a short press of the joystick
+    - Return value of loop() is as follows:
+        - If the game has ended or the player is currently in the main menu, and button 16 is pressed, then returns true.
+        - Otherwise, loop() returns false.
+- void draw_selection (int x, int y, uint32_t color)
+    - This function is called by Alice only.
+    - draw_selection updates the selection of the position that Alice’s cursor is on when selecting where to play.
+- void remove_selection (int x, int y)
+    - This function is called by Alice only - when the cursor changes position or Alice choses which position to play.
+- void sweep_line (int x1, int y1, int x2, int y2, bool do_delay = true)
+    - This function is called when a player gets 3 in a row. The screen then “sweeps” a line that delineates the centers of the three positions which the winner played in order to win.
+- void display_tic_tac_toe_home_screen()
+    - Displays home screen.
+- enter_tictactoe()
+    - enter_tictactoe() is the function that is called when another functionality (e.g. Main Menu) calls for the TicTacToe functionality.
+
+
+## connect_4_game.h
+
+This header file stores functions for the Connect4 game. The functions are similar to their counterparts in TicTacToe; the only difference is the possible moves that a player can make, as well as the controlling of the joystick. Therefore, we will not list them here.
+
+
+## wifi_stuff.h
+
+This header file stores functions for connection-related stuff that require wifi, particularly connecting to wifi itself and doing requests to the 6.08 server.
+ 
+
+- bool connect_to_wifi (const char &#42; network, const char &#42; password)
+    - This code simply connects to a wifi network, given the name of the network and the password.
+    - Returns whether the was successful.
+- void connect_mit_wifi()
+    - While not connected, this code repeatedly tries to connect to the “MIT” network and the “6s08” network in the lab.
+- char&#42; do_http_request(char&#42; host, char&#42; request, uint16_t response_size, uint16_t response_timeout, uint8_t serial)
+    - Parameters
+        - host: host of the server-side code (for our purposes, always “608dev.net”)
+        - request: entire request
+        - response_size: limit of response size
+        - response_timeout: how long the function will wait for a response until it times out.
+        - serial: whether to print to serial monitor
+    - Takes in file name of server side code and body of request.
+    - This function, consistently used in many 6.08 labs, does the following:
+        - Based on the file name of the server side code and the body of the request, formulates a formatted request and sends that request to the server.
+    - Every single request to the 6.08 server is done using this function. 
+    - The return value of this function is a pointer to the response buffer (which holds the response to the request) if the request was successful, and a null pointer otherwise.
+- void do_request (const char&#42; server_filename, const char&#42; body, char&#42; &response_buffer, bool suppress_loading = false)
+    - Parameters
+        - server_filename: name of file on server
+        - body: body of request
+        - response_buffer: buffer which to store the response to
+        - suppress_loading: See below.
+    - If suppress_loading is false, then this function will display a “Loading…” message on the screen. Otherwise, the “Loading…” message is considered to have been suppressed.
+    - Based on the file name of the server side code and the body of the request, do_request formulates a formatted request and sends that request to the server.
+    - This function calls do_http_request until do_http_request does not return a null pointer.
+
+
+## chat.h
+
+This header file stores functions for the chat functionality. Much of the code is modified from Joe’s MP3Player code (ESP32_DFPlayer_full.ino).
+
+
+- void display_chat_home_screen()
+    - displays a screen with instructions on which button to press to record/receive voice messages or to enter the camera mode.
+- void setup()
+    - initializes settings for the DFPlayer object that we will use to interact with the MP3 player. 
+    - checks if MP3 player is properly connected and if the SD card is correctly inserted 
+    - calls display_chat_home_screen() after ensuring all settings have been correctly initialized
+- bool loop()
+    - if the joystick is pressed, call enter_camera()
+    - if the receiving button is pressed, call receiving_response()
+    - if the recording button is pressed and held, record_audio() is called and the microphone records user’s speech. Once the button is released, the we stop recording. Then, the system makes a POST request to Google Speech API and stores the processed text in the transcript char array. To finish sending the message, we then make a POST request to our server to record the transcript as with the name of the user and timestamp.
+- record_audio()
+    - records audio by checking the analog pin connected to the microphone. It also uses mulaw_encode function and base64 encoding to record the aduio. 
+- int8_t mulaw_encode(int16_t sample)
+    - This function converts the 16 bit input sample to an 8 bit mulaw value to reduce the amount of data we need to send.
+- void receiving_response()
+    - makes a GET request to the server to retrieve opposite user’s most recent voice message from the database. The context in the result of the GET request contains a sequence of indices that correspond to each word in the opposite user’s message (refer to chat.py description for more details). Each index in the result is separated by a comma delimiter. Then, we strtok() through result and have the MP3player play the audio file that corresponds to each index. 
+- void enter_chat()
+    - Enters a chat from an external functionality, for example, from a game-playing state or main menu state. 
+
+
+## camera.h
+
+This header file stores functions for the camera functionality. Much of the code is modified from Joe’s camera code (arducam_jodalyst_example) and [here](https://github.com/Bodmer/JPEGDecoder) (JPEG Decoder).
+
+
+- void buffer2string2(char&#42 result, int ix)
+    - Parameters
+        - result: a pointer to the char array that the converted chars will be stored to
+        - ix: the index of the segment of 2000 values from the buffer we will convert 
+    - This function converts a range of hex values in buffer (a global uint8_t array that contains the compressed JPEG) to chars and stores them in the result char array. We want to POST the image information stored in the buffer to the database. Since we cannot directly POST an uint8_t array to the database, we must convert it to a char array. 
+    - The range of values that are to be converted in the buffer go from ix &#42 2000 to ix &#42 2000 + 2000. In order words, each call of the function converts the ix-th set of 2000 values in the buffer to characters.
+    - Each hex value in the buffer ranges from 0-255, which can be represented by two characters. For each hex value, we convert each digit to a character and store it in the result pointer. 
+
+
+- void string2buffer(char&#42 string, int ix)
+    - Parameters:
+        - string: a pointer to the char array of 4000 characters to be converted
+        - ix: the index of the segment of 2000 values in the buffer we will use to store the converted string
+    - This function converts a range of characters in string to 0-255 values and stores them in buffer (a global uint8_t array that contains the compressed JPEG), so that it can later be displayed properly.
+    - The characters that are to be converted go from ‘a’ to ‘p’, each representing a hex digit from 0x0 to 0xF.  Every two characters correspond to one 0-255 value, so the 4000 characters are mapped to the 2000 values in the buffer from ix &#42 2000 to (ix + 1) &#42 2000.
+    
+- class Camera
+    - void camCapture(ArduCAM myCAM)
+        - Parameters:
+            - myCAM: an ArduCAM object used to get camera data
+        - This function gets camera data from myCAM, storing it in buffer. It then converts the data to chars and sends it in packets to the server.
+    - void receive()
+        - This function receives char data from the server in packets, storing them in char arrays. It then converts the data to 0-255 values, storing it in buffer. Finally, it displays the JPEG to the TFT.
+    - void serverCapture()
+        - This function makes sure the camera is ready to take a photo and calls camCapture, timing each step.
+    - void display_camera_home_screen()
+        - This function displays the Camera App home screen.
+- void setup()
+    - This function sets up the camera capture mode, sets up button pins, connects to wifi, and calls display_camera_home_screen().
+- bool loop()
+    - This function handles button presses, including the camera button, the get button, and the exit button. Each time before taking a picture, it resets all the necessary components.
+
+
+
+# Code Description (server-side)
+## tic_tac_toe_query.py
+
+This file contains the server-side code for Tic Tac Toe. It contains more sophisticated functionality than board.h for a board.
+
+The class Board in tic_tac_toe_query.py stores the following data:
+
+- height of board
+- width of board
+- how many in a row a player needs to win (3 in tic tac toe)
+- the board itself (i.e. the pieces, X and O, on the board where the corresponding players have made their moves)
+- current player
+
+Here are the functions for the board
+
+- get_board(self)
+    - This returns the board state.
+- string_version(self)
+    - This returns a string representation of the board - which is roughly the concatentation of the string representation all the Board’s attributes.
+    - This function is useful for representing the board so that it can be stored on the database.
+- horizontal(self, x, y)
+    - Takes in x and y - coordinates of a position in the board.
+    - Checks if the 3 pieces starting at position (x, y) and going right are all filled and filled by the same player.
+    - Returns the 3 in a row if they exist, and -1 otherwise.
+- vertical(self, x, y)
+    - Takes in x and y - coordinates of a position in the board.
+    - Checks if the 3 pieces starting at position (x, y) and going down are all filled and filled by the same player.
+    - Returns the 3 in a row if they exist, and -1 otherwise.
+- maindiagonal(self, x, y)
+    - Checks for any 3 in a row that are in a “main diagonal” (i.e. “\”, or top left to bottom right); “main diagonal” comes from the fact that a main diagonal in a square matrix is in the top left to bottom right direction.
+    - Returns the 3 in a row if they exist, and -1 otherwise.
+- antidiagonal(self, x, y)
+    - Checks for any 3 in a row that are in a “antidiagonal” (i.e. “/”, or top right to bottom left); “main diagonal” comes from the fact that an antidiagonal in a square matrix is in the top right to bottom left direction.
+    - Returns the 3 in a row if they exist, and -1 otherwise.
+- status(self)
+    - Checks for any 3 in a row in the horizontal, vertical, maindiagonal, or antidiagonal directions, and returns the 3 in a row if they are found.
+    - Otherwise, returns ‘continue’ - indicating that the game should be continued.
+- put(self)
+    - Takes in x and y - coordinates of an empty position in the board.
+    - Returns the value returned by status().
+
+Our Tic Tac Toe game has two databases: one for storing the actual game itself (stored in the file “ttt.db”), and another for communication between the two players (stored in the file ”tttcomm.db”).
+
+Now, here are the other functions.
+
+
+- create_database()
+    - Creates the databases for the Tic Tac Toe game, if any of the databases do not exist yet.
+- form_board(s)
+    - Parameter s: string representation of a board.
+    - Creates a board from its string representation. In other words, this is the inverse function of string_version() function in the Board class.
+- get_board()
+    - Returns a Board object that represents the current game state.
+- put(x, y)
+    - The current player makes a move at the position (x, y).
+    - Returns a Board object that represents the new board state.
+- needs_another_player()
+    - Returns whether only one of the players is connected to the game
+- who_am_i()
+    - To whoever sent the request to the database, returns which player (X or O).
+    - If one of these players has already been taken.
+    - Otherwise, assigns the player randomly.
+- request_handler(request)
+    - The critical function that determines, based on the request, what to return. 
+    - Suppose that Alice is the one whose system is calling request_handler.
+    - If the request has parameter “reset”, then the board state in “ttt.db” is reset, and request_handler does not return a value.
+    - Otherwise, if the request has parameter “needs_another_player”, then Alice has already entered the game, and is waiting for Bob to enter. Returns whether Bob still has not entered.
+    - Otherwise, if the request has parameter “who_am_i”, returns Alice’s assignment (O or X).
+    - Otherwise, the request will have parameter “update” - which indicates whether it is an update to the state of the board.
+        - If “update” is True, then it is Alice’s turn. The server will make Alice’s move according to the “putx” and “puty” parameters (which indicate the x and y coordinate of the board that the player has made the move). Then, the 
+        - Otherwise, “update” is False, which means that it is Bob’s turn. Alice is querying whether Bob has made a move. If Bob has made a move, then this returns a string containing 3 values: x coordinate and y coordinate of where Bob made his move, as well as one of “win”, “draw”, or “continue” - as described in the Tic Tac Toe state diagram above. Otherwise, the string “-1 -1 -1” is returned to indicate no move.
+
+
+## connect4_query.py
+
+The design of connect4_query.py is mostly the same as the design of tic_tac_toe_query.py. There are, however, a few differences, such as the names of the two databases: “c4.db” for storing the actual game itself, and “c4comm.db” for communication between the two players. In addition, parameters such as the size of the board (7 by 6 instead of 3 by 3) are different. However, the two player names, “X” and “O”, are still the same as in tic_tac_toe_query.py.
+
+
+## chat.py
+
+chat.py contains the server-side functions dealing with sending and receiving messages. This file has an alphabetically ordered list of words that are stored on the MP3 player stored in an array; the information about the contents of a message is exchanged between the ESP32-side code and the server-side code through the index of the word in the alphabet in the list.
+
+
+- getword(text)
+    - “text” represents the speech-to-text output generated by the Google speech-to-text API. This returns a comma-separated list of indices of the words in the text.
+    - Note that this may return an error if a word is not in the words list, in which case the message “Something is not working in your code” is contained in the response buffer back in the ESP32-side code. In that case, the ESP32-side code then determines that some word that is not in the words list has been detected in the message.
+- request_handler(request)
+    - If the request is a “POST” request, then request_handler posts the newest message from the player to the server.
+    - If the request is a “GET” request, then request_handler gets the most trecent message from the opposite player from the server.
+
+
+## images.py
+
+images.py contains the server-side functions dealing with sending and receiving images. Because of the large size of images, sending and receiving messages take five queries. Also, image data is sent in streams of 2000 bytes; therefore, an image in total has 10000 bytes sent (and received) through each query to the server.
+
+
+- request_handler(request)
+    - Note that request_handler is called in a series of five requests.
+    - If the request is a “POST” request, then request_handler posts the newest picture from the player to the server.
+    - If the request is a “GET” request, then the request contains an “index” parameter, which indicates the ordinal number of the stream (first through fifth) of the most recent message is being sought, and request_handler returns the stream itself accordingly.
+
+
+# Power Management
+## Estimated time calculations using theoretical values
+
+To save power, the ESP32 will fall asleep after 20 seconds of inactivity in the Main Menu and the home screens for the two games. It can be simply woken up through pressing Button 26.
+
+<iframe width="560" height="335" align=”middle” src="https://www.youtube-nocookie.com/embed/mff3xbnR_OU?start=1" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+Using the following theoretical current consumption for each of the parts, we calculate the an estimated time our battery will last the system based on the circuit diagram.
+
+Here is a list of parts along with the theoretical values of the currents, as well as the sources of where we got those theoretical values:
+
+
+- **Camera: 70mA**
+    - http://www.arducam.com/downloads/shields/ArduCAM_Mini_2MP_Camera_Shield_DS.pdf
+- **Microphone: 3mA**
+    - https://cdn-learn.adafruit.com/downloads/pdf/adafruit-agc-electret-microphone-amplifier-max9814.pdf
+- **MP3 Player: 20mA**
+    - http://www.picaxe.com/docs/spe033.pdf
+- **TFT LCD:**
+    - https://www.adafruit.com/product/358
+- **ESP 32: 260mA (active mode), 0.8mA (light sleep mode)**
+    - https://lastminuteengineers.com/esp32-sleep-modes-power-consumption/
+
+We will show how we get the values for the amount of time the system lasts, using theoretical values 
+
+First, here is the circuit diagram for our entire system:
+
+
+![Circuit Diagram](https://paper-attachments.dropbox.com/s_11094920FC62D5D9D79E1AE49CC20E442F215DA0EBEF1B0FE8C1D198C844C7DA_1558037644562_Untitled+Diagram+4.jpg)
+
+
+Now, we will show our calculations of the amount of time using both theoretical values (i.e. the values 
+
+![](https://paper-attachments.dropbox.com/s_750A57F96C3C9B896A0D258B428EA7B529278F4F1BD586D018238E8EF0D3F2DB_1558040375257_image.png)
+
+
+
+## Actual time calculations the battery lasts with and without power management
+
+
+- With power management: 290 minutes
+- Without power management: 196.6 minutes
+
+
+To calculate the actual currents for the ESP32 when on Active Mode and Light Sleep modes, we created two Arduino files that had modifications from the main project’s code:
+
+- Main_Menu_try_power_conservation.ino, which includes power conservation mechanisms - it switches between 40 seconds of the ESP32 being in Active Mode and 20 seconds of Light Sleep mode.
+- Main_Menu_try_no_power_conservation.ino.
+
+In each of them, we ran the codes on the ESP32s running on battery power, starting with full battery. The two codes pinged the server codes power_analysis1.py and power_analysis2.py, respectively, which contain the codes for initializing the start time of the power analysis as well as pinging the server. To get the the battery lasted, we took the difference between the first and last pings.
+
+For both Arduino files, here is the code for pinging:
+
+```
+      if (asleep_main_menu) return; //only ping when not on light sleep mode
+      sprintf(body_main_menu, "op=put");
+      sprintf(request_buffer_main_menu,"POST http://608dev.net/sandbox/sc/whu2704/power_analysis2.py HTTP/1.1\r\n");
+      strcat(request_buffer_main_menu,"Host: 608dev.net\r\n");
+      strcat(request_buffer_main_menu,"Content-Type: application/x-www-form-urlencoded\r\n");
+      sprintf(request_buffer_main_menu+strlen(request_buffer_main_menu),"Content-Length: %d\r\n", strlen(body_main_menu)); //append string formatted to end of request buffer
+      strcat(request_buffer_main_menu,"\r\n"); //new line from header to body_main_menu
+      strcat(request_buffer_main_menu,body_main_menu);
+      strcat(request_buffer_main_menu,"\r\n"); //header
+      do_http_request("608dev.net", request_buffer_main_menu, 300, 6000, true);
+```
+
+For Main_Menu_try_power_conservation.ino, we include this line of code in the setup() function so as to fix every sleep period for 20 seconds:
+
+```
+    esp_sleep_enable_timer_wakeup(1000000 * 20);  //sleeps for 1000000 * 20 us (or 20 s)
+```
+
+Here is the code for timing sleep and wake:
+
+```
+    bool power_mode_take_care_main_menu() {
+      if (asleep_main_menu) {
+        //check for awake
+        if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+    //    if (millis() - sleep_time >= 10000) {
+          //every 10 s, wake up.
+          Serial.println("Wake up!!!");
+          asleep_main_menu = false;
+          last_action_main_menu = millis();
+          tft.fillScreen(TFT_BLACK);
+          drawMenu(&tft, TEXT_COLOR, BACKGROUND);
+        }
+        return true;
+      } else {
+        //active for a period of every 40000 ms (40 s)
+        if (millis() - last_action_main_menu >= 40000) {
+          //every 20 s, wake up
+          Serial.println("START SLEEP");
+          tft.fillScreen(TFT_BLACK);
+          tft.setTextSize(1);
+          tft.setCursor(0, 5);
+          tft.printf("Sleeping...\nPress 26 to continue\n");
+          asleep_main_menu = true;
+          sleep_time = millis();
+          esp_light_sleep_start();
+          return true; 
+        }
+      }
+      return false;
+    }
+```
+
+The variable “last_action_main_menu” denotes when the ESP32 was last woken up.
+If the ESP32 is on Active Mode, then it goes to sleep if 40 seconds have passed since it was last woken up. Otherwise, it wakes up once the wakeup timer has reached 20 seconds.
+
+<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js" charset="utf-8"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?" charset="utf-8"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
